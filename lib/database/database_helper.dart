@@ -196,12 +196,32 @@ class DatabaseHelper {
   }
 
   Future<void> _insertDummyData(Database db) async {
-    // Check if data already exists
-    final existingBakeries = await db.query('bakeries', limit: 1);
-    if (existingBakeries.isNotEmpty) {
-      return; // Data already inserted, skip
+    // FORCE CHECK: Must have exactly 8 bakeries
+    final existingBakeries = await db.query('bakeries');
+    
+    print('🔍 DATABASE CHECK: Found ${existingBakeries.length} bakeries');
+    
+    if (existingBakeries.length >= 8) {
+      print('✅ All 8 bakeries already exist, skipping insertion');
+      return;
+    }
+    
+    // FORCE CLEAR if less than 8
+    print('⚠️ FORCE RESET: Only ${existingBakeries.length} bakeries found!');
+    print('🗑️ Deleting all data to insert 8 bakeries...');
+    
+    try {
+      await db.delete('orders');
+      await db.delete('products');
+      await db.delete('user_coupons');
+      await db.delete('bakeries');
+      print('✅ Database cleared successfully');
+    } catch (e) {
+      print('⚠️ Error clearing database: $e');
     }
 
+    print('📝 INSERTING 8 BAKERIES WITH REAL COORDINATES...');
+    
     // Insert dummy bakeries with actual GPS location
     await db.insert('bakeries', {
       'name': 'Roti Bakar 88',

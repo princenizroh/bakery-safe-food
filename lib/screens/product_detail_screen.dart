@@ -433,10 +433,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: SafeArea(
         child: Row(
           children: [
-            // Quantity Selector - PERFECTLY ALIGNED
+            // Quantity Selector - ICON KECIL SEJAJAR
             Container(
               height: 80,
-              constraints: const BoxConstraints(minWidth: 140),
+              constraints: const BoxConstraints(minWidth: 130),
               decoration: BoxDecoration(
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
@@ -445,6 +445,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // TOMBOL MINUS - ICON KECIL
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -455,12 +456,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               });
                             }
                           : null,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(6),
                         child: Icon(
                           Icons.remove,
-                          size: 16,
+                          size: 14, // DIKECILKAN dari 16
                           color: _quantity > 1
                               ? AppColors.primary
                               : AppColors.textSecondary,
@@ -468,17 +469,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   ),
+                  // ANGKA QUANTITY
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
                       _quantity.toString(),
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 14, // DIKECILKAN dari 16
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
+                        letterSpacing: -0.3,
                       ),
                     ),
                   ),
+                  // TOMBOL PLUS - ICON KECIL
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -489,12 +492,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               });
                             }
                           : null,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(6),
                         child: Icon(
                           Icons.add,
-                          size: 16,
+                          size: 14, // DIKECILKAN dari 16
                           color: _quantity < widget.product.quantity
                               ? AppColors.primary
                               : AppColors.textSecondary,
@@ -507,28 +510,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             const SizedBox(width: 12),
 
-            // Price + Button - NOMINAL SEJAJAR dengan +/-
+            // Price + Button - HARGA DI TENGAH
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Price SEJAJAR dengan icon +/- dan DI TENGAH
+                  // HARGA DI TENGAH - SEJAJAR DENGAN +/-
                   Container(
                     height: 40,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          FormatHelper.formatCurrency(widget.product.discountPrice * _quantity),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ],
+                    alignment: Alignment.center, // PAKSA KE TENGAH
+                    child: Text(
+                      FormatHelper.formatCurrency(widget.product.discountPrice * _quantity),
+                      style: const TextStyle(
+                        fontSize: 18, // LEBIH BESAR BIAR JELAS
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                        letterSpacing: -0.5,
+                      ),
+                      textAlign: TextAlign.center, // PAKSA CENTER
                     ),
                   ),
                   const SizedBox(height: 4),
