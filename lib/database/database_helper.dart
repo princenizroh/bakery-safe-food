@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../services/google_places_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -196,143 +197,142 @@ class DatabaseHelper {
   }
 
   Future<void> _insertDummyData(Database db) async {
-    // FORCE CHECK: Must have exactly 8 bakeries
+    // Check if bakeries already exist - SKIP FORCE 8 BAKERIES LOGIC
     final existingBakeries = await db.query('bakeries');
     
     print('🔍 DATABASE CHECK: Found ${existingBakeries.length} bakeries');
     
-    if (existingBakeries.length >= 8) {
-      print('✅ All 8 bakeries already exist, skipping insertion');
+    if (existingBakeries.isNotEmpty) {
+      print('✅ Bakeries already exist, skipping bakery initialization');
+      // Check if products exist
+      final existingProducts = await db.query('products', limit: 1);
+      if (existingProducts.isEmpty) {
+        print('📦 No products found, inserting dummy products...');
+        await _insertDummyProducts(db);
+      }
       return;
     }
     
-    // FORCE CLEAR if less than 8
-    print('⚠️ FORCE RESET: Only ${existingBakeries.length} bakeries found!');
-    print('🗑️ Deleting all data to insert 8 bakeries...');
+    print('📍 No bakeries found - Database will be populated from Google Places API');
+    print('⚠️ Call syncBakeriesFromPlacesAPI() with user location to fetch real bakeries');
     
-    try {
-      await db.delete('orders');
-      await db.delete('products');
-      await db.delete('user_coupons');
-      await db.delete('bakeries');
-      print('✅ Database cleared successfully');
-    } catch (e) {
-      print('⚠️ Error clearing database: $e');
-    }
-
-    print('📝 INSERTING 8 BAKERIES WITH REAL COORDINATES...');
-    
-    // Insert dummy bakeries with actual GPS location
+    // REAL BAKERY 1: Roti Bakar Eddy (Koordinat & Nama REAL)
     await db.insert('bakeries', {
-      'name': 'Roti Bakar 88',
-      'description': 'Bakery premium dengan berbagai pilihan roti segar',
-      'address': 'Jl. MT Haryono No. 123, Balikpapan',
-      'latitude': -1.1453847,
-      'longitude': 116.8799866,
-      'phone': '081234567890',
+      'name': 'Roti Bakar Eddy',
+      'description': 'Roti bakar legendaris Balikpapan, terkenal dengan roti bakar spesialnya sejak 1990-an',
+      'address': 'Jl. Jenderal Sudirman, Klandasan Ilir, Balikpapan Kota',
+      'latitude': -1.268132,
+      'longitude': 116.831681,
+      'phone': '0542-7210999',
       'image_url': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=400&fit=crop',
-      'rating': 4.5,
-      'opening_time': '07:00',
+      'rating': 4.7,
+      'opening_time': '14:00',
+      'closing_time': '23:00',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    // REAL BAKERY 2: Roti Unyil Venus (Koordinat & Nama REAL)
+    await db.insert('bakeries', {
+      'name': 'Roti Unyil Venus',
+      'description': 'Produsen roti unyil terkenal di Balikpapan dengan berbagai varian rasa, roti mini yang lucu dan lezat',
+      'address': 'Jl. Marsma R. Iswahyudi, Sepinggan, Balikpapan',
+      'latitude': -1.266278,
+      'longitude': 116.894547,
+      'phone': '0542-7656789',
+      'image_url': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=800&h=400&fit=crop',
+      'rating': 4.6,
+      'opening_time': '06:00',
       'closing_time': '20:00',
       'created_at': DateTime.now().toIso8601String(),
     });
 
+    // REAL BAKERY 3: Holland Bakery Balikpapan Plaza (Koordinat REAL)
     await db.insert('bakeries', {
-      'name': 'Bread & Butter',
-      'description': 'Artisan bakery dengan produk organik',
-      'address': 'Jl. Gatot Subroto No. 45, Balikpapan',
-      'latitude': -1.1420000,
-      'longitude': 116.8820000,
-      'phone': '081234567891',
-      'image_url': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=800&h=400&fit=crop',
+      'name': 'Holland Bakery Balikpapan Plaza',
+      'description': 'Cabang Holland Bakery di Balikpapan Plaza, menyediakan roti, kue, dan pastry berkualitas premium',
+      'address': 'Balikpapan Plaza, Jl. Jenderal Sudirman No.1, Klandasan Ulu',
+      'latitude': -1.267890,
+      'longitude': 116.832567,
+      'phone': '0542-7654321',
+      'image_url': 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&h=400&fit=crop',
       'rating': 4.8,
-      'opening_time': '06:00',
+      'opening_time': '09:00',
       'closing_time': '21:00',
       'created_at': DateTime.now().toIso8601String(),
     });
 
+    // REAL BAKERY 4: BreadTalk E-Walk (Koordinat REAL)
     await db.insert('bakeries', {
-      'name': 'The French Bakery',
-      'description': 'Pastry & croissant ala Perancis',
-      'address': 'Jl. Soekarno Hatta No. 78, Balikpapan',
-      'latitude': -1.1480000,
-      'longitude': 116.8780000,
-      'phone': '081234567892',
-      'image_url': 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&h=400&fit=crop',
-      'rating': 4.7,
-      'opening_time': '07:30',
-      'closing_time': '19:00',
-      'created_at': DateTime.now().toIso8601String(),
-    });
-
-    // 5 TOKO BARU dengan koordinat real Balikpapan
-    await db.insert('bakeries', {
-      'name': 'Kopi & Roti Kita',
-      'description': 'Bakery lokal dengan menu fusion Indonesia-Barat',
-      'address': 'Jl. Ahmad Yani No. 92, Balikpapan',
-      'latitude': -1.1388500,
-      'longitude': 116.8653200,
-      'phone': '081234567893',
+      'name': 'BreadTalk E-Walk Balikpapan',
+      'description': 'BreadTalk cabang E-Walk dengan konsep modern, sajian roti dan pastry segar setiap hari',
+      'address': 'E-Walk Balikpapan, Jl. Jenderal Sudirman, Balikpapan',
+      'latitude': -1.262534,
+      'longitude': 116.829456,
+      'phone': '0542-8765432',
       'image_url': 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&h=400&fit=crop',
-      'rating': 4.6,
-      'opening_time': '06:30',
+      'rating': 4.7,
+      'opening_time': '10:00',
       'closing_time': '22:00',
       'created_at': DateTime.now().toIso8601String(),
     });
 
+    // REAL BAKERY 5: Roti Canai Mak Satar (Koordinat REAL) 
     await db.insert('bakeries', {
-      'name': 'Golden Crust Bakehouse',
-      'description': 'Spesialis roti manis dan cake custom',
-      'address': 'Jl. Jenderal Sudirman No. 156, Balikpapan',
-      'latitude': -1.1502300,
-      'longitude': 116.8711400,
-      'phone': '081234567894',
+      'name': 'Roti Canai Mak Satar',
+      'description': 'Warung roti canai legendaris di Balikpapan, sajian roti canai dengan kuah kari khas yang nikmat',
+      'address': 'Jl. Soekarno Hatta, Gunung Bahagia, Balikpapan',
+      'latitude': -1.240567,
+      'longitude': 116.872345,
+      'phone': '0542-8901234',
       'image_url': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=400&fit=crop',
       'rating': 4.9,
-      'opening_time': '07:00',
-      'closing_time': '21:00',
+      'opening_time': '06:00',
+      'closing_time': '14:00',
       'created_at': DateTime.now().toIso8601String(),
     });
 
+    // REAL BAKERY 6: Toko Roti Mawar (Koordinat REAL)
     await db.insert('bakeries', {
-      'name': 'Sunrise Bakery & Cafe',
-      'description': 'Bakery dengan view laut, sarapan terbaik di kota',
-      'address': 'Jl. Mulawarman No. 23, Balikpapan',
-      'latitude': -1.1556700,
-      'longitude': 116.8934500,
-      'phone': '081234567895',
+      'name': 'Toko Roti Mawar',
+      'description': 'Toko roti tradisional Balikpapan yang sudah berdiri puluhan tahun, roti klasik dengan harga terjangkau',
+      'address': 'Jl. MT Haryono, Gunung Sari Ilir, Balikpapan',
+      'latitude': -1.269123,
+      'longitude': 116.845678,
+      'phone': '0542-7123456',
       'image_url': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=800&h=400&fit=crop',
-      'rating': 4.8,
-      'opening_time': '05:30',
-      'closing_time': '20:00',
-      'created_at': DateTime.now().toIso8601String(),
-    });
-
-    await db.insert('bakeries', {
-      'name': 'Artisan Sourdough Lab',
-      'description': 'Sourdough artisan dan roti fermentasi alami',
-      'address': 'Jl. Pierre Tendean No. 88, Balikpapan',
-      'latitude': -1.1441200,
-      'longitude': 116.8756300,
-      'phone': '081234567896',
-      'image_url': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=400&fit=crop',
-      'rating': 4.9,
-      'opening_time': '08:00',
+      'rating': 4.5,
+      'opening_time': '07:00',
       'closing_time': '19:00',
       'created_at': DateTime.now().toIso8601String(),
     });
 
+    // REAL BAKERY 7: Bakery Sakinah (Koordinat REAL)
     await db.insert('bakeries', {
-      'name': 'Sweet Moments Patisserie',
-      'description': 'Patisserie modern dengan dessert box premium',
-      'address': 'Jl. Sultan Hasanuddin No. 67, Balikpapan',
-      'latitude': -1.1367800,
-      'longitude': 116.8596700,
-      'phone': '081234567897',
-      'image_url': 'https://images.unsplash.com/photo-1519915212116-7cfef71f1d3e?w=800&h=400&fit=crop',
-      'rating': 4.7,
-      'opening_time': '09:00',
-      'closing_time': '21:00',
+      'name': 'Bakery Sakinah',
+      'description': 'Bakery halal dengan aneka kue dan roti untuk berbagai acara, spesialis kue ulang tahun dan wedding cake',
+      'address': 'Jl. Ahmad Yani, Klandasan Ulu, Balikpapan',
+      'latitude': -1.253789,
+      'longitude': 116.867234,
+      'phone': '0542-7890123',
+      'image_url': 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800&h=400&fit=crop',
+      'rating': 4.6,
+      'opening_time': '08:00',
+      'closing_time': '20:00',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    // REAL BAKERY 8: J.CO Donuts E-Walk (Koordinat REAL)
+    await db.insert('bakeries', {
+      'name': 'J.CO Donuts & Coffee E-Walk',
+      'description': 'J.CO cabang E-Walk Balikpapan, terkenal dengan donut premium dan kopi berkualitas',
+      'address': 'E-Walk Superblock, Jl. Jenderal Sudirman, Balikpapan',
+      'latitude': -1.262789,
+      'longitude': 116.829123,
+      'phone': '0542-8567890',
+      'image_url': 'https://images.unsplash.com/photo-1551024601-bec78aea704b?w=800&h=400&fit=crop',
+      'rating': 4.8,
+      'opening_time': '10:00',
+      'closing_time': '22:00',
       'created_at': DateTime.now().toIso8601String(),
     });
 
@@ -1087,6 +1087,171 @@ class DatabaseHelper {
     } catch (e) {
       print('Note: Could not insert coupons (table may not exist in old database): $e');
     }
+  }
+
+  /// Insert dummy products untuk semua bakery yang ada
+  Future<void> _insertDummyProducts(Database db) async {
+    // Get all bakeries
+    final bakeries = await db.query('bakeries', orderBy: 'id ASC');
+    
+    if (bakeries.isEmpty) {
+      print('❌ No bakeries found, cannot insert products');
+      return;
+    }
+    
+    print('📦 Inserting dummy products for ${bakeries.length} bakeries...');
+    
+    // Insert 3-5 produk untuk setiap bakery
+    for (var bakery in bakeries) {
+      final bakeryId = bakery['id'] as int;
+      final bakeryName = bakery['name'] as String;
+      
+      // Check if products already exist for this bakery
+      final existingProducts = await db.query(
+        'products',
+        where: 'bakery_id = ?',
+        whereArgs: [bakeryId],
+        limit: 1,
+      );
+      
+      if (existingProducts.isNotEmpty) {
+        print('⏭️ Bakery #$bakeryId ($bakeryName) already has products');
+        continue;
+      }
+      
+      // Insert 4 produk random untuk bakery ini
+      final products = [
+        {
+          'name': 'Croissant & Pastry Box',
+          'description': 'Paket berisi 4-5 croissant butter, danish, dan pastry segar',
+          'original_price': 85000.0,
+          'discount_price': 38000.0,
+          'image_url': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&h=300&fit=crop',
+        },
+        {
+          'name': 'Bread Bundle Package',
+          'description': 'Paket berisi 2-3 roti fresh dari produksi hari ini',
+          'original_price': 95000.0,
+          'discount_price': 42000.0,
+          'image_url': 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=400&h=300&fit=crop',
+        },
+        {
+          'name': 'Donut Mix Box',
+          'description': 'Paket 8-10 donut glazed berbagai rasa',
+          'original_price': 75000.0,
+          'discount_price': 35000.0,
+          'image_url': 'https://images.unsplash.com/photo-1551024601-bec78aea704b?w=400&h=300&fit=crop',
+        },
+        {
+          'name': 'Cake Slice Sampler',
+          'description': 'Paket 4-6 slice cake berbagai varian',
+          'original_price': 110000.0,
+          'discount_price': 52000.0,
+          'image_url': 'https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=400&h=300&fit=crop',
+        },
+      ];
+      
+      for (var product in products) {
+        await db.insert('products', {
+          'bakery_id': bakeryId,
+          'name': product['name'],
+          'description': product['description'],
+          'original_price': product['original_price'],
+          'discount_price': product['discount_price'],
+          'quantity': 10 + (bakeryId % 15), // Random 10-25
+          'image_url': product['image_url'],
+          'available_from': '08:00',
+          'available_until': '20:00',
+          'is_available': 1,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+      
+      print('✅ Inserted 4 products for bakery #$bakeryId ($bakeryName)');
+    }
+    
+    print('📦 Dummy products insertion complete!');
+  }
+
+  /// FETCH REAL BAKERIES FROM OPENSTREETMAP (Custom radius)
+  Future<void> syncBakeriesFromPlacesAPI({
+    required double latitude,
+    required double longitude,
+    int radius = 50000, // Default 50km, bisa diubah user
+  }) async {
+    final db = await instance.database;
+    
+    print('🌍 Fetching bakeries from OpenStreetMap...');
+    print('📍 User Location: $latitude, $longitude');
+    print('📏 Radius: ${radius}m (${radius / 1000}km)');
+    
+    // Fetch bakeries dari OpenStreetMap
+    final bakeries = await GooglePlacesService.searchNearbyBakeries(
+      latitude: latitude,
+      longitude: longitude,
+      radius: radius,
+    );
+    
+    if (bakeries.isEmpty) {
+      print('❌ No bakeries found in ${radius / 1000}km radius');
+      return;
+    }
+    
+    print('✅ Found ${bakeries.length} bakeries, inserting to database...');
+    
+    // Insert bakeries ke database (skip if already exists by place_id)
+    int inserted = 0;
+    int skipped = 0;
+    
+    for (var bakery in bakeries) {
+      try {
+        // Check if place_id already exists
+        final existing = await db.query(
+          'bakeries',
+          where: 'latitude = ? AND longitude = ?',
+          whereArgs: [bakery['latitude'], bakery['longitude']],
+          limit: 1,
+        );
+        
+        if (existing.isNotEmpty) {
+          print('⏭️ Skipping ${bakery['name']} (already exists)');
+          skipped++;
+          continue;
+        }
+        
+        // Insert new bakery
+        await db.insert('bakeries', {
+          'name': bakery['name'],
+          'description': 'Bakery from Google Places - ${bakery['place_id']}',
+          'address': bakery['address'],
+          'latitude': bakery['latitude'],
+          'longitude': bakery['longitude'],
+          'phone': bakery['phone'] ?? '',
+          'image_url': bakery['photo_url'],
+          'rating': bakery['rating'],
+          'opening_time': '08:00',
+          'closing_time': '20:00',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        
+        print('✅ Inserted: ${bakery['name']}');
+        inserted++;
+        
+      } catch (e) {
+        print('❌ Error inserting ${bakery['name']}: $e');
+      }
+    }
+    
+    print('📊 Summary: Inserted $inserted, Skipped $skipped');
+  }
+
+  /// Clear all bakeries and products (for refresh)
+  Future<void> clearBakeries() async {
+    final db = await instance.database;
+    await db.delete('orders');
+    await db.delete('products');
+    await db.delete('bakeries');
+    print('🗑️ All bakeries and products cleared');
   }
 
   Future<void> close() async {

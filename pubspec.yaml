@@ -39,8 +39,9 @@ dependencies:
   path_provider: ^2.1.1
   path: ^1.8.3
   
-  # Google Maps & Location
-  google_maps_flutter: ^2.5.0
+  # Maps & Location (FREE OpenStreetMap)
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
   geolocator: ^10.1.0
   geocoding: ^2.1.1
   
@@ -52,9 +53,6 @@ dependencies:
   
   # HTTP & API
   http: ^1.1.0
-  
-  # URL Launcher
-  url_launcher: ^6.2.2
   
   # Icons
   cupertino_icons: ^1.0.8
@@ -69,6 +67,18 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  
+  # Launcher Icons
+  flutter_launcher_icons: ^0.13.1
+
+# Launcher Icon Configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#FE7A36"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  min_sdk_android: 21
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

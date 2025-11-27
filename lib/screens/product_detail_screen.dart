@@ -433,10 +433,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: SafeArea(
         child: Row(
           children: [
-            // Quantity Selector - ICON KECIL SEJAJAR
+            // Quantity Selector - KOTAK DIKECILKAN
             Container(
-              height: 80,
-              constraints: const BoxConstraints(minWidth: 130),
+              height: 48, // DIKECILKAN dari 80 agar sejajar dengan button
+              constraints: const BoxConstraints(minWidth: 110), // DIKECILKAN width
               decoration: BoxDecoration(
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
@@ -445,7 +445,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // TOMBOL MINUS - ICON KECIL
+                  // TOMBOL MINUS - ICON NORMAL
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -458,10 +458,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           : null,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(8),
                         child: Icon(
                           Icons.remove,
-                          size: 14, // DIKECILKAN dari 16
+                          size: 18, // ICON NORMAL SIZE
                           color: _quantity > 1
                               ? AppColors.primary
                               : AppColors.textSecondary,
@@ -475,13 +475,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Text(
                       _quantity.toString(),
                       style: const TextStyle(
-                        fontSize: 14, // DIKECILKAN dari 16
+                        fontSize: 16, // ANGKA NORMAL SIZE
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.3,
                       ),
                     ),
                   ),
-                  // TOMBOL PLUS - ICON KECIL
+                  // TOMBOL PLUS - ICON NORMAL
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -494,10 +494,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           : null,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(8),
                         child: Icon(
                           Icons.add,
-                          size: 14, // DIKECILKAN dari 16
+                          size: 18, // ICON NORMAL SIZE
                           color: _quantity < widget.product.quantity
                               ? AppColors.primary
                               : AppColors.textSecondary,
@@ -517,18 +517,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // HARGA DI TENGAH - SEJAJAR DENGAN +/-
-                  Container(
-                    height: 40,
-                    alignment: Alignment.center, // PAKSA KE TENGAH
-                    child: Text(
-                      FormatHelper.formatCurrency(widget.product.discountPrice * _quantity),
-                      style: const TextStyle(
-                        fontSize: 18, // LEBIH BESAR BIAR JELAS
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                        letterSpacing: -0.5,
+                  SizedBox(
+                    height: 48, // SAMA DENGAN KOTAK QUANTITY
+                    child: Center( // CENTER VERTIKAL & HORIZONTAL
+                      child: Text(
+                        FormatHelper.formatCurrency(widget.product.discountPrice * _quantity),
+                        style: const TextStyle(
+                          fontSize: 20, // BIGGER & BOLD
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                          letterSpacing: -0.5,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center, // PAKSA CENTER
                     ),
                   ),
                   const SizedBox(height: 4),
