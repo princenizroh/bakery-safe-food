@@ -5,9 +5,15 @@ import '../utils/colors.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
-  final VoidCallback onTap;
+  final VoidCallback onTap; // untuk buka detail produk
+  final VoidCallback? onOrder; // untuk langsung pesan
 
-  const ProductCard({super.key, required this.product, required this.onTap});
+  const ProductCard({
+    super.key, 
+    required this.product, 
+    required this.onTap,
+    this.onOrder,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +150,59 @@ class ProductCard extends StatelessWidget {
                   ],
                 ),
               ),
+              
+              // Tombol "Pesan" di kanan card
+              if (onOrder != null)
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onOrder,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.primary, AppColors.accent],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.shopping_cart,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Pesan',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

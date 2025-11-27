@@ -20,7 +20,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3, // Bumped version to force recreation
+      version: 5, // Bumped version untuk add order_items table
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -77,6 +77,95 @@ class DatabaseHelper {
       try {
         await db.execute('ALTER TABLE users ADD COLUMN profile_image TEXT');
       } catch (_) {}
+    }
+    
+    if (oldVersion < 4) {
+      // Create cart table if not exists
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS cart (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            product_name TEXT NOT NULL,
+            product_price REAL NOT NULL,
+            product_image TEXT,
+            bakery_id INTEGER NOT NULL,
+            bakery_name TEXT NOT NULL,
+            quantity INTEGER NOT NULL
+          )
+        ''');
+      } catch (_) {}
+    }
+    
+    if (oldVersion < 5) {
+      print('🔄 Upgrading database from version $oldVersion to 5...');
+      
+      // Create order_items table for multiple items per order
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            product_name TEXT NOT NULL,
+            product_price REAL NOT NULL,
+            product_image TEXT,
+            bakery_id INTEGER NOT NULL,
+            bakery_name TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            subtotal REAL NOT NULL,
+            FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+          )
+        ''');
+        print('✅ Created order_items table');
+      } catch (e) {
+        print('❌ Error creating order_items table: $e');
+      }
+      
+      // CRITICAL: Add columns to orders table - check if exists first
+      // payment_method
+      try {
+        final columns = await db.rawQuery('PRAGMA table_info(orders)');
+        final hasPaymentMethod = columns.any((col) => col['name'] == 'payment_method');
+        if (!hasPaymentMethod) {
+          await db.execute('ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT \'cod\'');
+          print('✅ Added payment_method column');
+        } else {
+          print('✅ payment_method column already exists');
+        }
+      } catch (e) {
+        print('❌ Error adding payment_method: $e');
+      }
+      
+      // coupon_id
+      try {
+        final columns = await db.rawQuery('PRAGMA table_info(orders)');
+        final hasCouponId = columns.any((col) => col['name'] == 'coupon_id');
+        if (!hasCouponId) {
+          await db.execute('ALTER TABLE orders ADD COLUMN coupon_id INTEGER');
+          print('✅ Added coupon_id column');
+        } else {
+          print('✅ coupon_id column already exists');
+        }
+      } catch (e) {
+        print('❌ Error adding coupon_id: $e');
+      }
+      
+      // discount_amount
+      try {
+        final columns = await db.rawQuery('PRAGMA table_info(orders)');
+        final hasDiscountAmount = columns.any((col) => col['name'] == 'discount_amount');
+        if (!hasDiscountAmount) {
+          await db.execute('ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0');
+          print('✅ Added discount_amount column');
+        } else {
+          print('✅ discount_amount column already exists');
+        }
+      } catch (e) {
+        print('❌ Error adding discount_amount: $e');
+      }
+      
+      print('✅ Database upgrade to version 5 complete');
     }
     
     if (oldVersion < 3) {
@@ -189,6 +278,70 @@ class DatabaseHelper {
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (bakery_id) REFERENCES bakeries (id),
         FOREIGN KEY (product_id) REFERENCES products (id)
+      )
+    ''');
+
+    // Table Cart (Shopping Cart)
+    await db.execute('''
+      CREATE TABLE cart (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        product_name TEXT NOT NULL,
+        product_price REAL NOT NULL,
+        product_image TEXT,
+        bakery_id INTEGER NOT NULL,
+        bakery_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL
+      )
+    ''');
+
+    // Table Order Items (Multiple items per order)
+    await db.execute('''
+      CREATE TABLE order_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        product_name TEXT NOT NULL,
+        product_price REAL NOT NULL,
+        product_image TEXT,
+        bakery_id INTEGER NOT NULL,
+        bakery_name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        subtotal REAL NOT NULL,
+        FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Coupons table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS coupons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        discount_percentage INTEGER NOT NULL,
+        max_discount REAL,
+        min_purchase REAL DEFAULT 0,
+        valid_from TEXT NOT NULL,
+        valid_until TEXT NOT NULL,
+        max_usage INTEGER NOT NULL,
+        used_count INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
+    // User Coupons table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_coupons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        coupon_id INTEGER NOT NULL,
+        claimed_at TEXT NOT NULL,
+        is_used INTEGER DEFAULT 0,
+        used_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (coupon_id) REFERENCES coupons (id)
       )
     ''');
 

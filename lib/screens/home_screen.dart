@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/bakery_service.dart';
+import '../services/cart_service.dart';
 import '../models/bakery_model.dart';
 import '../models/product_model.dart';
 import '../routes/app_routes.dart';
@@ -31,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     final bakeryService = context.read<BakeryService>();
+    final cartService = context.read<CartService>();
     
     print('🏠 HOME: Starting data load...');
     
@@ -40,6 +42,9 @@ class _HomeScreenState extends State<HomeScreen> {
     
     print('🏠 HOME: Loading bakeries...');
     await bakeryService.loadBakeries();
+    
+    // Load cart
+    await cartService.loadCart();
     
     setState(() {
       _filteredBakeries = bakeryService.bakeries;
@@ -55,6 +60,89 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _showUserGuide(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.menu_book, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Panduan Pengguna'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildGuideSection(
+                '🏪 Menjelajah Toko',
+                'Lihat daftar toko bakery terdekat. Gunakan pencarian atau filter radius di peta untuk menemukan toko favorit Anda.',
+              ),
+              const SizedBox(height: 12),
+              _buildGuideSection(
+                '🛒 Berbelanja',
+                '1. Tap toko untuk melihat produk\n'
+                '2. Pilih produk dan tap "Tambah ke Keranjang"\n'
+                '3. Atur jumlah sesuai kebutuhan',
+              ),
+              const SizedBox(height: 12),
+              _buildGuideSection(
+                '💳 Checkout',
+                '1. Buka keranjang dari icon di atas\n'
+                '2. Review pesanan Anda\n'
+                '3. Pilih kupon jika tersedia\n'
+                '4. Pilih metode pembayaran (COD/Transfer)\n'
+                '5. Tentukan waktu pengambilan\n'
+                '6. Konfirmasi pesanan',
+              ),
+              const SizedBox(height: 12),
+              _buildGuideSection(
+                '📦 Lacak Pesanan',
+                'Cek status pesanan Anda di tab "Orders". Status akan berubah dari Pending → Confirmed → Ready → Completed.',
+              ),
+              const SizedBox(height: 12),
+              _buildGuideSection(
+                '🗺️ Gunakan Peta',
+                'Tab "Map" menampilkan lokasi toko di peta. Atur radius pencarian untuk melihat toko dalam jangkauan tertentu.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Mengerti'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideSection(String title, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          content,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
@@ -68,6 +156,56 @@ class _HomeScreenState extends State<HomeScreen> {
           ? AppBar(
               title: const Text('SafeFood'),
               actions: [
+                // User Guide Button
+                IconButton(
+                  icon: const Icon(Icons.help_outline),
+                  tooltip: 'Panduan Pengguna',
+                  onPressed: () => _showUserGuide(context),
+                ),
+                // Cart Icon with Badge
+                Consumer<CartService>(
+                  builder: (context, cartService, _) {
+                    return Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.shopping_cart_outlined),
+                          tooltip: 'Keranjang',
+                          onPressed: () async {
+                            await cartService.loadCart();
+                            if (context.mounted) {
+                              Navigator.pushNamed(context, '/cart');
+                            }
+                          },
+                        ),
+                        if (cartService.totalItems > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '${cartService.totalItems}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.person_outline),
                   tooltip: 'Profile',

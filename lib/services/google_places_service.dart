@@ -5,8 +5,12 @@ import 'dart:math';
 /// 🆓 FREE Alternative - OpenStreetMap Nominatim API
 /// Tidak perlu API key, sepenuhnya GRATIS!
 class GooglePlacesService {
-  static const String _nominatimUrl = 'https://nominatim.openstreetmap.org';
-  static const String _overpassUrl = 'https://overpass-api.de/api/interpreter';
+  // Fallback servers jika server utama down/timeout
+  static const List<String> _overpassServers = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.openstreetmap.fr/api/interpreter',
+  ];
   
   /// Cari bakery dalam radius 50km dari lokasi user menggunakan Overpass API (OSM)
   static Future<List<Map<String, dynamic>>> searchNearbyBakeries({
@@ -14,9 +18,8 @@ class GooglePlacesService {
     required double longitude,
     int radius = 50000, // 50km dalam meter
   }) async {
-    try {
-      // Query Overpass API untuk mencari bakery
-      final query = '''
+    // Query Overpass API untuk mencari bakery
+    final query = '''
 [out:json][timeout:25];
 (
   node["shop"="bakery"](around:$radius,$latitude,$longitude);
@@ -28,69 +31,90 @@ out body;
 out skel qt;
 ''';
 
-      print('🔍 Fetching bakeries from OpenStreetMap (FREE)...');
-      print('📍 Location: $latitude, $longitude');
-      print('📏 Radius: ${radius}m (${radius / 1000}km)');
+    print('🔍 Fetching bakeries from OpenStreetMap (FREE)...');
+    print('📍 Location: $latitude, $longitude');
+    print('📏 Radius: ${radius}m (${radius / 1000}km)');
+    
+    // Coba beberapa server Overpass secara berurutan
+    for (int i = 0; i < _overpassServers.length; i++) {
+      final serverUrl = _overpassServers[i];
+      print('🌐 Trying server ${i + 1}/${_overpassServers.length}: $serverUrl');
       
-      final response = await http.post(
-        Uri.parse(_overpassUrl),
-        body: query,
-      );
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final elements = data['elements'] as List;
+      try {
+        final response = await http.post(
+          Uri.parse(serverUrl),
+          body: query,
+        ).timeout(
+          const Duration(seconds: 15), // 15 detik per server
+          onTimeout: () {
+            print('⏱️ Server $serverUrl timeout after 15 seconds');
+            throw Exception('Request timeout');
+          },
+        );
         
-        print('✅ Found ${elements.length} bakeries from OpenStreetMap');
-        
-        // Parse hasil API
-        List<Map<String, dynamic>> bakeries = [];
-        for (var element in elements) {
-          if (element['type'] == 'node' && element['tags'] != null) {
-            final tags = element['tags'];
-            final lat = element['lat'];
-            final lon = element['lon'];
-            
-            // Skip jika tidak ada nama
-            if (tags['name'] == null) continue;
-            
-            // Hitung jarak
-            final distance = _calculateDistance(latitude, longitude, lat, lon);
-            
-            final bakery = {
-              'place_id': element['id'].toString(),
-              'name': tags['name'] ?? 'Bakery',
-              'address': _buildAddress(tags),
-              'latitude': lat,
-              'longitude': lon,
-              'rating': 4.0 + (element['id'] % 10) / 10, // Random rating 4.0-4.9
-              'photo_url': _getRandomBakeryImage(),
-              'phone': tags['phone'] ?? tags['contact:phone'] ?? '',
-              'distance': distance,
-            };
-            bakeries.add(bakery);
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final elements = data['elements'] as List;
+          
+          print('✅ Found ${elements.length} bakeries from OpenStreetMap');
+          
+          // Parse hasil API
+          List<Map<String, dynamic>> bakeries = [];
+          for (var element in elements) {
+            if (element['type'] == 'node' && element['tags'] != null) {
+              final tags = element['tags'];
+              final lat = element['lat'];
+              final lon = element['lon'];
+              
+              // Skip jika tidak ada nama
+              if (tags['name'] == null) continue;
+              
+              // Hitung jarak
+              final distance = _calculateDistance(latitude, longitude, lat, lon);
+              
+              final bakery = {
+                'place_id': element['id'].toString(),
+                'name': tags['name'] ?? 'Bakery',
+                'address': _buildAddress(tags),
+                'latitude': lat,
+                'longitude': lon,
+                'rating': 4.0 + (element['id'] % 10) / 10, // Random rating 4.0-4.9
+                'photo_url': _getRandomBakeryImage(),
+                'phone': tags['phone'] ?? tags['contact:phone'] ?? '',
+                'distance': distance,
+              };
+              bakeries.add(bakery);
+            }
+          }
+          
+          // Sort by distance
+          bakeries.sort((a, b) => a['distance'].compareTo(b['distance']));
+          
+          // NO LIMIT - Return all bakeries within radius
+          print('📊 Returning ${bakeries.length} bakeries from $serverUrl (no limit)');
+          return bakeries;
+          
+        } else {
+          print('❌ HTTP Error from $serverUrl: ${response.statusCode}');
+          // Lanjut ke server berikutnya
+          if (i == _overpassServers.length - 1) {
+            // Server terakhir juga gagal
+            return [];
           }
         }
-        
-        // Sort by distance
-        bakeries.sort((a, b) => a['distance'].compareTo(b['distance']));
-        
-        // Limit to 50 results
-        if (bakeries.length > 50) {
-          bakeries = bakeries.sublist(0, 50);
+      } catch (e) {
+        print('❌ Exception from $serverUrl: $e');
+        // Lanjut ke server berikutnya
+        if (i == _overpassServers.length - 1) {
+          // Server terakhir juga error
+          return [];
         }
-        
-        print('📊 Returning ${bakeries.length} bakeries');
-        return bakeries;
-        
-      } else {
-        print('❌ HTTP Error: ${response.statusCode}');
-        return [];
       }
-    } catch (e) {
-      print('❌ Exception: $e');
-      return [];
     }
+    
+    // Jika semua server gagal
+    print('❌ All Overpass servers failed');
+    return [];
   }
   
   /// Build address dari OSM tags

@@ -8,6 +8,7 @@ import 'services/auth_service.dart';
 import 'services/bakery_service.dart';
 import 'services/order_service.dart';
 import 'services/coupon_service.dart';
+import 'services/cart_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
@@ -17,6 +18,7 @@ import 'screens/profile_screen.dart';
 import 'screens/coupons_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/saved_addresses_screen.dart';
+import 'screens/cart_screen.dart';
 import 'models/bakery_model.dart';
 import 'models/product_model.dart';
 
@@ -97,6 +99,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => BakeryService()),
         ChangeNotifierProvider(create: (_) => OrderService()),
         ChangeNotifierProvider(create: (_) => CouponService()),
+        ChangeNotifierProvider(create: (_) => CartService()),
       ],
       child: const MyApp(),
     ),
@@ -207,6 +210,10 @@ class _MyAppState extends State<MyApp> {
                 case '/saved-addresses':
                   return MaterialPageRoute(
                     builder: (_) => const SavedAddressesScreen(),
+                  );
+                case '/cart':
+                  return MaterialPageRoute(
+                    builder: (_) => const CartScreen(),
                   );
                 default:
                   return null;

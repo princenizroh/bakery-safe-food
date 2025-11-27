@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -63,26 +64,154 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _isLoadingAPI = true);
 
     try {
-      // Clear old bakeries dari radius sebelumnya
-      await DatabaseHelper.instance.clearBakeries();
+      // STRATEGY: Clear bakeries outside current radius, keep products
+      // Ini akan delete bakery yang terlalu jauh, tapi products tetap ada di DB
+      // Saat fetch bakery baru, products akan di-generate otomatis via _insertDummyProducts
+      final db = await DatabaseHelper.instance.database;
       
-      // Fetch bakeries dari OpenStreetMap (GRATIS!)
+      // STEP 1: Count current bakeries
+      final countBefore = await db.rawQuery('SELECT COUNT(*) as count FROM bakeries');
+      final bakeryCountBefore = countBefore.first['count'] as int;
+      print('📊 Bakeries before cleanup: $bakeryCountBefore');
+      
+      // STEP 2: Get all bakeries and filter by distance in Dart
+      // SQLite doesn't support trigonometric functions (acos, sin, cos)
+      print('🔍 Filtering bakeries by ${_selectedRadius / 1000}km radius...');
+      print('📍 User position: ${position.latitude}, ${position.longitude}');
+      
+      final allBakeries = await db.query('bakeries');
+      final bakeriesToDelete = <int>[];
+      
+      for (var bakery in allBakeries) {
+        final bakeryLat = bakery['latitude'] as double;
+        final bakeryLon = bakery['longitude'] as double;
+        
+        // Calculate distance using Haversine formula in Dart
+        const double earthRadius = 6371000; // meters
+        final lat1 = position.latitude * (math.pi / 180.0);
+        final lat2 = bakeryLat * (math.pi / 180.0);
+        final lon1 = position.longitude * (math.pi / 180.0);
+        final lon2 = bakeryLon * (math.pi / 180.0);
+        
+        final dLat = lat2 - lat1;
+        final dLon = lon2 - lon1;
+        
+        final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+            math.cos(lat1) * math.cos(lat2) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
+        final c = 2 * math.asin(math.sqrt(a));
+        final distance = earthRadius * c;
+        
+        if (distance > _selectedRadius) {
+          bakeriesToDelete.add(bakery['id'] as int);
+        }
+      }
+      
+      // Delete bakeries outside radius
+      int deletedCount = 0;
+      for (var id in bakeriesToDelete) {
+        await db.delete('bakeries', where: 'id = ?', whereArgs: [id]);
+        deletedCount++;
+      }
+      
+      print('✅ Deleted $deletedCount bakeries outside radius');
+      
+      // STEP 3: Count after cleanup
+      final countAfter = await db.rawQuery('SELECT COUNT(*) as count FROM bakeries');
+      final bakeryCountAfter = countAfter.first['count'] as int;
+      print('📊 Bakeries after cleanup: $bakeryCountAfter');
+      
+      // STEP 4: Fetch new bakeries from OpenStreetMap
+      print('🌍 Fetching bakeries from OpenStreetMap within ${_selectedRadius / 1000}km...');
       await DatabaseHelper.instance.syncBakeriesFromPlacesAPI(
         latitude: position.latitude,
         longitude: position.longitude,
-        radius: _selectedRadius, // Gunakan radius yang dipilih user
+        radius: _selectedRadius,
       );
 
-      // Reload bakeries setelah fetch
+      // STEP 5: Reload bakeries from database
       await bakeryService.loadBakeries();
       
+      // STEP 6: CRITICAL - Filter bakeries by radius AGAIN after load
+      // Karena loadBakeries() ambil SEMUA dari DB, kita perlu filter lagi
+      print('🔍 Filtering ${bakeryService.bakeries.length} bakeries by radius...');
+      final filteredBakeries = bakeryService.bakeries.where((bakery) {
+        // Calculate distance using Haversine formula
+        const double earthRadius = 6371000; // meters
+        final lat1 = position.latitude * (math.pi / 180.0);
+        final lat2 = bakery.latitude * (math.pi / 180.0);
+        final lon1 = position.longitude * (math.pi / 180.0);
+        final lon2 = bakery.longitude * (math.pi / 180.0);
+        
+        final dLat = lat2 - lat1;
+        final dLon = lon2 - lon1;
+        
+        final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+            math.cos(lat1) * math.cos(lat2) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
+        final c = 2 * math.asin(math.sqrt(a));
+        final distance = earthRadius * c;
+        
+        final isInRadius = distance <= _selectedRadius;
+        if (!isInRadius) {
+          print('  ❌ ${bakery.name}: ${distance.toInt()}m (outside $_selectedRadius m)');
+        }
+        return isInRadius;
+      }).toList();
+      
+      // Update bakeryService dengan filtered list
+      bakeryService.bakeries.clear();
+      bakeryService.bakeries.addAll(filteredBakeries);
+      print('✅ Final result: ${filteredBakeries.length} bakeries within radius');
+      
       if (mounted) {
-        _showSuccess('✅ Berhasil memuat ${bakeryService.bakeries.length} bakery dari OpenStreetMap!');
+        // Jika berhasil fetch dari API atau sudah ada data di database
+        if (filteredBakeries.isNotEmpty) {
+          _showSuccess('✅ Berhasil memuat ${filteredBakeries.length} bakery dalam radius ${_selectedRadius / 1000}km!');
+        } else {
+          // Jika API timeout/error tapi tidak ada data di database
+          _showError('Tidak ada bakery ditemukan dalam radius ${_selectedRadius / 1000}km. Coba perluas radius atau periksa koneksi internet.');
+        }
       }
       
     } catch (e) {
+      print('❌ ERROR: $e');
+      // Reload dari database meskipun API error
+      await bakeryService.loadBakeries();
+      
+      // CRITICAL: Filter by radius even in error case using Dart!
+      print('🔍 [ERROR HANDLER] Filtering ${bakeryService.bakeries.length} bakeries by radius...');
+      
+      final filteredBakeries = bakeryService.bakeries.where((bakery) {
+        const double earthRadius = 6371000;
+        final lat1 = position.latitude * (math.pi / 180.0);
+        final lat2 = bakery.latitude * (math.pi / 180.0);
+        final lon1 = position.longitude * (math.pi / 180.0);
+        final lon2 = bakery.longitude * (math.pi / 180.0);
+        
+        final dLat = lat2 - lat1;
+        final dLon = lon2 - lon1;
+        
+        final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+            math.cos(lat1) * math.cos(lat2) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
+        final c = 2 * math.asin(math.sqrt(a));
+        final distance = earthRadius * c;
+        
+        return distance <= _selectedRadius;
+      }).toList();
+      
+      bakeryService.bakeries.clear();
+      bakeryService.bakeries.addAll(filteredBakeries);
+      print('✅ [ERROR HANDLER] Final result: ${filteredBakeries.length} bakeries within radius');
+      
       if (mounted) {
-        _showError('Gagal memuat data dari OpenStreetMap');
+        if (filteredBakeries.isNotEmpty) {
+          // Ada data lama di database
+          _showSuccess('Menampilkan ${filteredBakeries.length} bakery dalam radius ${_selectedRadius / 1000}km (dari cache)');
+        } else {
+          _showError('Tidak ada bakery dalam radius ${_selectedRadius / 1000}km. Coba perluas radius.');
+        }
       }
     } finally {
       if (mounted) {

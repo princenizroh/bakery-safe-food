@@ -3,7 +3,6 @@ import '../models/bakery_model.dart';
 import '../models/product_model.dart';
 import '../utils/colors.dart';
 import '../utils/format_helper.dart';
-import '../widgets/order_confirmation_bottom_sheet.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -20,8 +19,6 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  int _quantity = 1;
-
   @override
   Widget build(BuildContext context) {
     final discountPercent = ((widget.product.originalPrice -
@@ -40,6 +37,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             pinned: true,
             backgroundColor: Colors.white,
             foregroundColor: Colors.black,
+            automaticallyImplyLeading: false, // Hide default back button
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,
@@ -87,6 +85,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             color: Colors.white,
                           ),
                         ),
+                  // Back button overlay (outline + subtle background) untuk
+                  // memastikan icon terlihat di atas gambar produk
+                  Positioned(
+                    top: 28,
+                    left: 12,
+                    child: SafeArea(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white, width: 1.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.arrow_back, color: Colors.black),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   // Discount Badge
                   if (discountPercent > 0)
                     Positioned(
@@ -390,204 +419,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      // Tidak ada bottom bar untuk order - hanya menampilkan info produk
+      // User akan order dari halaman toko (bakery detail screen)
     );
   }
 
-  // Widget _buildIncludedItem(String text) {
-  //   return Padding(
-  //     padding: const EdgeInsets.only(bottom: 10),
-  //     child: Row(
-  //       children: [
-  //         const Icon(
-  //           Icons.check_circle_rounded,
-  //           color: AppColors.secondary,
-  //           size: 20,
-  //         ),
-  //         const SizedBox(width: 10),
-  //         Text(
-  //           text,
-  //           style: const TextStyle(
-  //             fontSize: 14,
-  //             fontWeight: FontWeight.w500,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  Widget _buildBottomBar() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowColor,
-            blurRadius: 16,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            // Quantity Selector - KOTAK DIKECILKAN
-            Container(
-              height: 48, // DIKECILKAN dari 80 agar sejajar dengan button
-              constraints: const BoxConstraints(minWidth: 110), // DIKECILKAN width
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // TOMBOL MINUS - ICON NORMAL
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _quantity > 1
-                          ? () {
-                              setState(() {
-                                _quantity--;
-                              });
-                            }
-                          : null,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.remove,
-                          size: 18, // ICON NORMAL SIZE
-                          color: _quantity > 1
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // ANGKA QUANTITY
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      _quantity.toString(),
-                      style: const TextStyle(
-                        fontSize: 16, // ANGKA NORMAL SIZE
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ),
-                  // TOMBOL PLUS - ICON NORMAL
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _quantity < widget.product.quantity
-                          ? () {
-                              setState(() {
-                                _quantity++;
-                              });
-                            }
-                          : null,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.add,
-                          size: 18, // ICON NORMAL SIZE
-                          color: _quantity < widget.product.quantity
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Price + Button - HARGA DI TENGAH
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // HARGA DI TENGAH - SEJAJAR DENGAN +/-
-                  SizedBox(
-                    height: 48, // SAMA DENGAN KOTAK QUANTITY
-                    child: Center( // CENTER VERTIKAL & HORIZONTAL
-                      child: Text(
-                        FormatHelper.formatCurrency(widget.product.discountPrice * _quantity),
-                        style: const TextStyle(
-                          fontSize: 20, // BIGGER & BOLD
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
-                          letterSpacing: -0.5,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // Button SEJAJAR dengan text quantity
-                  Container(
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.accent],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        print('🛒 Order button pressed!');
-                        try {
-                          await OrderConfirmationBottomSheet.show(
-                            context,
-                            product: widget.product,
-                            bakery: widget.bakery,
-                          );
-                          print('✅ Modal returned');
-                        } catch (e) {
-                          print('❌ Modal error: $e');
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Pesan Sekarang',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

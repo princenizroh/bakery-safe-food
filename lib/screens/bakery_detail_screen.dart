@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../database/database_helper.dart';
 import '../widgets/product_card.dart';
 import '../screens/product_detail_screen.dart';
+import '../services/cart_service.dart';
 import '../utils/format_helper.dart';
 import '../utils/colors.dart';
 
@@ -259,38 +260,41 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
     final bakeryService = context.watch<BakeryService>();
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // App Bar with Image
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: widget.bakery.imageUrl != null
-                  ? Image.network(
-                      widget.bakery.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // App Bar with Image
+              SliverAppBar(
+                expandedHeight: 200,
+                pinned: true,
+                automaticallyImplyLeading: false, // Hide default back button
+                flexibleSpace: FlexibleSpaceBar(
+                  background: widget.bakery.imageUrl != null
+                      ? Image.network(
+                          widget.bakery.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: AppColors.primary,
+                              child: const Icon(
+                                Icons.bakery_dining,
+                                size: 80,
+                                color: Colors.white,
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
                           color: AppColors.primary,
                           child: const Icon(
                             Icons.bakery_dining,
                             size: 80,
                             color: Colors.white,
                           ),
-                        );
-                      },
-                    )
-                  : Container(
-                      color: AppColors.primary,
-                      child: const Icon(
-                        Icons.bakery_dining,
-                        size: 80,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
-          ),
+                        ),
+                ),
+              ),
 
           // Content
           SliverToBoxAdapter(
@@ -416,6 +420,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                       final product = bakeryService.products[index];
                       return ProductCard(
                         product: product,
+                        // onTap: buka halaman detail produk (untuk lihat info lengkap)
                         onTap: () {
                           Navigator.push(
                             context,
@@ -427,10 +432,107 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                             ),
                           );
                         },
+                        // onOrder: tambah ke keranjang
+                        onOrder: () async {
+                          try {
+                            final cartService = context.read<CartService>();
+                            await cartService.addToCart(
+                              productId: product.id!,
+                              productName: product.name,
+                              productPrice: product.discountPrice,
+                              productImage: product.imageUrl,
+                              bakeryId: widget.bakery.id!,
+                              bakeryName: widget.bakery.name,
+                              quantity: 1,
+                            );
+                            
+                            if (context.mounted) {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.success.withValues(alpha: 0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.shopping_cart,
+                                          size: 64,
+                                          color: AppColors.success,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 24),
+                                      const Text(
+                                        'Ditambahkan ke Keranjang',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        product.name,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            print('Error adding to cart: $e');
+                          }
+                        },
                       );
                     }, childCount: bakeryService.products.length),
                   ),
                 ),
+            ],
+          ),
+          // Floating back button yang tidak hilang saat scroll
+          Positioned(
+            top: 40,
+            left: 16,
+            child: SafeArea(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white, width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.arrow_back, color: Colors.black),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
